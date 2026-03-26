@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>Clemens AI Assistant</title>
+<link rel="manifest" href="manifest.json">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0f0f1a; --surface: #1a1a2e; --surface2: #252540;
+  --primary: #4f8cff; --primary-dim: #3a6acc; --text: #e8e8f0;
+  --text-dim: #8888aa; --border: #333355; --success: #4caf50;
+  --danger: #ff4444; --radius: 12px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ─── Login ─── */
+#login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100dvh; padding: 24px; gap: 20px; }
+#login-screen h1 { font-size: 24px; font-weight: 700; color: var(--primary); }
+#login-screen p { color: var(--text-dim); font-size: 14px; text-align: center; }
+#login-screen input, #login-screen button { width: 100%; max-width: 320px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 16px; background: var(--surface); color: var(--text); outline: none; }
+#login-screen input:focus { border-color: var(--primary); }
+#login-screen button { background: var(--primary); border: none; font-weight: 600; cursor: pointer; }
+#login-screen button:active { background: var(--primary-dim); }
+#login-error { color: var(--danger); font-size: 13px; min-height: 20px; }
+
+/* ─── Chat ─── */
+#chat-screen { display: none; flex-direction: column; height: 100dvh; }
+#chat-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#chat-header h2 { font-size: 16px; font-weight: 600; }
+#chat-header .user-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+#chat-header button { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+
+/* Sidebar */
+#sidebar { display: none; position: fixed; top: 0; left: 0; width: 280px; height: 100dvh; background: var(--surface); border-right: 1px solid var(--border); z-index: 100; flex-direction: column; }
+#sidebar.open { display: flex; }
+#sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--border); }
+#sidebar-header h3 { font-size: 15px; }
+#sidebar-header button { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+#conv-list { flex: 1; overflow-y: auto; padding: 8px; }
+.conv-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-item:hover, .conv-item.active { background: var(--surface2); color: var(--text); }
+#new-chat-btn { margin: 8px; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+#overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+#overlay.open { display: block; }
+
+/* Messages */
+#messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 15px; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; }
+.msg.user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+.msg.assistant { align-self: flex-start; background: var(--surface2); border-bottom-left-radius: 4px; }
+.msg.assistant a { color: var(--primary); }
+.msg .timestamp { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; display: block; }
+.msg.assistant .timestamp { color: var(--text-dim); }
+.typing { align-self: flex-start; background: var(--surface2); padding: 12px 20px; border-radius: 16px; }
+.typing span { display: inline-block; width: 8px; height: 8px; background: var(--text-dim); border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+
+/* Input */
+#input-area { padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+#msg-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 10px 16px; color: var(--text); font-size: 16px; outline: none; resize: none; max-height: 120px; min-height: 42px; line-height: 1.4; font-family: inherit; }
+#msg-input:focus { border-color: var(--primary); }
+#input-area button { width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#send-btn { background: var(--primary); color: white; font-size: 18px; }
+#send-btn:disabled { opacity: 0.4; }
+#voice-btn { background: var(--surface2); color: var(--text-dim); font-size: 20px; border: 1px solid var(--border); }
+#voice-btn.recording { background: var(--danger); color: white; border-color: var(--danger); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* Safe area for iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  #input-area { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <h1>Clemens AI Assistant</h1>
+  <p>Sign in to chat with the AI assistant</p>
+  <input type="text" id="login-user" placeholder="Username" autocapitalize="none" autocomplete="username">
+  <input type="password" id="login-pin" placeholder="PIN" inputmode="numeric" autocomplete="current-password">
+  <button onclick="doLogin()">Sign In</button>
+  <div id="login-error"></div>
+</div>
+
+<!-- Chat Screen -->
+<div id="chat-screen">
+  <div id="chat-header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="toggleSidebar()" style="font-size:18px;padding:4px 8px">☰</button>
+      <h2>AI Assistant</h2>
+    </div>
+    <div class="user-info">
+      <span id="display-name"></span>
+      <button onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="overlay" onclick="toggleSidebar()"></div>
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h3>Conversations</h3>
+      <button onclick="toggleSidebar()">&times;</button>
+    </div>
+    <button id="new-chat-btn" onclick="newChat()">+ New Chat</button>
+    <div id="conv-list"></div>
+  </div>
+
+  <!-- Messages -->
+  <div id="messages">
+    <div class="msg assistant">Hi! I'm the Clemens AI Assistant. How can I help you today?<br><br>You can ask me about tenants, balances, payments, vacancies, or anything else about your properties.</div>
+  </div>
+
+  <!-- Input -->
+  <div id="input-area">
+    <button id="voice-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
+    <textarea id="msg-input" rows="1" placeholder="Type a message..." onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+    <button id="send-btn" onclick="sendMessage()" disabled>➤</button>
+  </div>
+</div>
+
+<script>
+const API = 'https://clemens-platform-backend.onrender.com/team-chat';
+let token = localStorage.getItem('tc_token');
+let username = localStorage.getItem('tc_user');
+let displayName = localStorage.getItem('tc_display');
+let conversationId = null;
+let isProcessing = false;
+
+// ─── Auth ───
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pin = document.getElementById('login-pin').value.trim();
+  const errEl = document.getElementById('login-error');
+  if (!user || !pin) { errEl.textContent = 'Enter username and PIN'; return; }
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: user, pin: pin}),
+    });
+    if (!res.ok) { const e = await res.json(); errEl.textContent = e.detail || 'Login failed'; return; }
+    const data = await res.json();
+    token = data.token; username = data.username; displayName = data.display_name;
+    localStorage.setItem('tc_token', token);
+    localStorage.setItem('tc_user', username);
+    localStorage.setItem('tc_display', displayName);
+    showChat();
+  } catch (e) { errEl.textContent = 'Connection error. Try again.'; }
+}
+
+function doLogout() {
+  localStorage.removeItem('tc_token'); localStorage.removeItem('tc_user'); localStorage.removeItem('tc_display');
+  token = null; username = null; displayName = null; conversationId = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('chat-screen').style.display = 'none';
+}
+
+function showChat() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('chat-screen').style.display = 'flex';
+  document.getElementById('display-name').textContent = displayName;
+  loadConversations();
+}
+
+// ─── Messages ───
+function addMessage(role, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  // Basic markdown: **bold**, *italic*, links
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
+  const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  el.innerHTML = html + `<span class="timestamp">${time}</span>`;
+  document.getElementById('messages').appendChild(el);
+  scrollToBottom();
+  return el;
+}
+
+function showTyping() {
+  const el = document.createElement('div');
+  el.className = 'typing'; el.id = 'typing-indicator';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  document.getElementById('messages').appendChild(el);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+function scrollToBottom() {
+  const m = document.getElementById('messages');
+  setTimeout(() => m.scrollTop = m.scrollHeight, 50);
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || isProcessing) return;
+  input.value = ''; autoGrow(input);
+  document.getElementById('send-btn').disabled = true;
+  isProcessing = true;
+  addMessage('user', text);
+  showTyping();
+  try {
+    const res = await fetch(`${API}/query`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+      body: JSON.stringify({message: text, conversation_id: conversationId}),
+    });
+    hideTyping();
+    if (res.status === 401) { doLogout(); return; }
+    if (!res.ok) { addMessage('assistant', 'Sorry, something went wrong. Please try again.'); return; }
+    const data = await res.json();
+    conversationId = data.conversation_id;
+    addMessage('assistant', data.response);
+    // Check for file exports in tool_calls
+    if (data.tool_calls) {
+      for (const tc of data.tool_calls) {
+        if (tc.result && tc.result.export && tc.result.export.url) {
+          addMessage('assistant', `📎 File: ${tc.result.export.url}`);
+        }
+      }
+    }
+  } catch (e) {
+    hideTyping();
+    addMessage('assistant', 'Connection error. Please check your internet and try again.');
+  } finally {
+    isProcessing = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+// ─── Conversations ───
+async function loadConversations() {
+  try {
+    const res = await fetch(`${API}/conversations`, {headers: {'Authorization': `Bearer ${token}`}});
+    if (res.status === 401) { doLogout(); return; }
+    const data = await res.json();
+    const list = document.getElementById('conv-list');
+    list.innerHTML = '';
+    for (const c of data.conversations || []) {
+      const div = document.createElement('div');
+      div.className = 'conv-item' + (c.id === conversationId ? ' active' : '');
+      div.textContent = (c.title || 'Untitled').replace(/^\[[^\]]+\]\s*/, '');
+      div.onclick = () => loadConversation(c.id);
+      list.appendChild(div);
+    }
+  } catch (e) {}
+}
+
+async function loadConversation(id) {
+  try {
+    const res = await fetch(`${API}/conversations/${id}`, {headers: {'Authorization': `Bearer ${token}`}});
+    if (!res.ok) return;
+    const conv = await res.json();
+    conversationId = id;
+    const msgs = document.getElementById('messages');
+    msgs.innerHTML = '';
+    for (const m of conv.messages || []) {
+      addMessage(m.role, m.content);
+    }
+    toggleSidebar();
+    loadConversations();
+  } catch (e) {}
+}
+
+function newChat() {
+  conversationId = null;
+  document.getElementById('messages').innerHTML = '';
+  addMessage('assistant', 'New conversation started. How can I help you?');
+  toggleSidebar();
+  loadConversations();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open');
+}
+
+// ─── Voice Input ───
+let recognition = null;
+let isRecording = false;
+
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Voice input is not supported in this browser. Try Chrome or Safari.');
+    return;
+  }
+  if (isRecording) { stopVoice(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  const input = document.getElementById('msg-input');
+  recognition.onresult = (e) => {
+    let transcript = '';
+    for (let i = 0; i < e.results.length; i++) {
+      transcript += e.results[i][0].transcript;
+    }
+    input.value = transcript;
+    autoGrow(input);
+    document.getElementById('send-btn').disabled = !transcript.trim();
+  };
+  recognition.onend = () => { stopVoice(); };
+  recognition.onerror = () => { stopVoice(); };
+  recognition.start();
+  isRecording = true;
+  document.getElementById('voice-btn').classList.add('recording');
+}
+
+function stopVoice() {
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  isRecording = false;
+  document.getElementById('voice-btn').classList.remove('recording');
+}
+
+// ─── Input Helpers ───
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  document.getElementById('send-btn').disabled = !e.target.value.trim();
+}
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  document.getElementById('send-btn').disabled = !el.value.trim();
+}
+
+// ─── Init ───
+if (token && username) { showChat(); }
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
