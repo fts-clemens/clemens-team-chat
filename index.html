@@ -184,12 +184,13 @@ function rewriteStorageUrls(html) {
 function addMessage(role, text) {
   const el = document.createElement('div');
   el.className = `msg ${role}`;
-  // Basic markdown: **bold**, *italic*, links
+  // Basic markdown: **bold**, *italic*, [text](url) links, bare URLs
   let html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/(^|[^"'>])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank">$2</a>');
   // Rewrite Supabase storage URLs to go through our authenticated proxy
   html = rewriteStorageUrls(html);
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
