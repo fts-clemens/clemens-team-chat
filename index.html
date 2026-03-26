@@ -172,6 +172,15 @@ function showChat() {
 }
 
 // ─── Messages ───
+function rewriteStorageUrls(html) {
+  // Rewrite Supabase storage URLs → team-chat proxy (avoids 401 from missing JWT)
+  // Matches: https://<project>.supabase.co/storage/v1/object/<public|sign>/documents/<path>
+  return html.replace(
+    /https:\/\/[^"'\s]+\.supabase\.co\/storage\/v1\/object\/(?:public|sign)\/documents\/([^"'\s?]+)[^"'\s]*/g,
+    API + '/files/$1?t=' + encodeURIComponent(token)
+  );
+}
+
 function addMessage(role, text) {
   const el = document.createElement('div');
   el.className = `msg ${role}`;
@@ -181,6 +190,8 @@ function addMessage(role, text) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
+  // Rewrite Supabase storage URLs to go through our authenticated proxy
+  html = rewriteStorageUrls(html);
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   el.innerHTML = html + `<span class="timestamp">${time}</span>`;
   document.getElementById('messages').appendChild(el);
@@ -207,6 +218,7 @@ function scrollToBottom() {
 }
 
 async function sendMessage() {
+  stopVoice();
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
   if (!text || isProcessing) return;
