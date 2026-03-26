@@ -219,9 +219,14 @@ function addMessage(role, text) {
       let label = url;
       try {
         const pathname = new URL(url).pathname;
-        const filename = pathname.split('/').pop();
-        if (filename && filename.includes('.')) {
-          label = '\uD83D\uDCCE ' + decodeURIComponent(filename);
+        // Short download URLs: /documents/files/f/{short_id}
+        if (/\/documents\/files\/f\/[a-f0-9]{8}$/.test(pathname)) {
+          label = '\uD83D\uDCCE Download File';
+        } else {
+          const filename = pathname.split('/').pop();
+          if (filename && filename.includes('.')) {
+            label = '\uD83D\uDCCE ' + decodeURIComponent(filename);
+          }
         }
       } catch(e) {}
       return prefix + '<a href="' + url + '" target="_blank">' + label + '</a>';
