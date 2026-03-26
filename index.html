@@ -159,6 +159,7 @@ async function doLogin() {
 
 function doLogout() {
   localStorage.removeItem('tc_token'); localStorage.removeItem('tc_user'); localStorage.removeItem('tc_display');
+  localStorage.removeItem('tc_conv_id'); localStorage.removeItem('tc_conv_html');
   token = null; username = null; displayName = null; conversationId = null;
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('chat-screen').style.display = 'none';
@@ -168,7 +169,28 @@ function showChat() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('display-name').textContent = displayName;
+  // Restore last conversation from localStorage
+  const savedConvId = localStorage.getItem('tc_conv_id');
+  const savedMessages = localStorage.getItem('tc_conv_html');
+  if (savedConvId && savedMessages) {
+    conversationId = savedConvId;
+    document.getElementById('messages').innerHTML = savedMessages;
+    scrollToBottom();
+  }
   loadConversations();
+}
+
+// ─── Persistence ───
+function saveConversationState() {
+  if (conversationId) {
+    localStorage.setItem('tc_conv_id', conversationId);
+  }
+  localStorage.setItem('tc_conv_html', document.getElementById('messages').innerHTML);
+}
+
+function clearConversationState() {
+  localStorage.removeItem('tc_conv_id');
+  localStorage.removeItem('tc_conv_html');
 }
 
 // ─── Messages ───
@@ -189,8 +211,21 @@ function addMessage(role, text) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-    .replace(/(^|[^"'>])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank">$2</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, linkText, url) {
+      return '<a href="' + url + '" target="_blank">\uD83D\uDCCE ' + linkText + '</a>';
+    })
+    .replace(/(^|[^"'>])(https?:\/\/[^\s<)]+)/g, function(_, prefix, url) {
+      // Extract a clean label from the URL
+      let label = url;
+      try {
+        const pathname = new URL(url).pathname;
+        const filename = pathname.split('/').pop();
+        if (filename && filename.includes('.')) {
+          label = '\uD83D\uDCCE ' + decodeURIComponent(filename);
+        }
+      } catch(e) {}
+      return prefix + '<a href="' + url + '" target="_blank">' + label + '</a>';
+    });
   // Rewrite Supabase storage URLs to go through our authenticated proxy
   html = rewriteStorageUrls(html);
   const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -248,6 +283,7 @@ async function sendMessage() {
         }
       }
     }
+    saveConversationState();
   } catch (e) {
     hideTyping();
     addMessage('assistant', 'Connection error. Please check your internet and try again.');
@@ -287,6 +323,7 @@ async function loadConversation(id) {
     for (const m of conv.messages || []) {
       addMessage(m.role, m.content);
     }
+    saveConversationState();
     toggleSidebar();
     loadConversations();
   } catch (e) {}
@@ -294,6 +331,7 @@ async function loadConversation(id) {
 
 function newChat() {
   conversationId = null;
+  clearConversationState();
   document.getElementById('messages').innerHTML = '';
   addMessage('assistant', 'New conversation started. How can I help you?');
   toggleSidebar();
