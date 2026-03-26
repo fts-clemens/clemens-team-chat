@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Capacitor native platforms (generated, rebuild with `npx cap add`)
+ios/
+android/
+
+# OS files
+.DS_Store
+Thumbs.db

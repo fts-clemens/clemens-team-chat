@@ -1,0 +1,9 @@
+{
+  "appId": "com.clemenscp.aichat",
+  "appName": "Clemens AI",
+  "webDir": "www",
+  "server": {
+    "url": "https://clemens-team-chat.vercel.app",
+    "cleartext": true
+  }
+}
