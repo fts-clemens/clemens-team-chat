@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "dk-edgeworks": {
+      "source": {
+        "source": "github",
+        "repo": "dk-edgeworks/clemens-claude"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "clemens@dk-edgeworks": true
+  }
+}
